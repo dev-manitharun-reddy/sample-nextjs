@@ -61,14 +61,14 @@ export default function LoginPage() {
       // Store user info in localStorage
       localStorage.setItem("isLoggedIn", "true");
       localStorage.setItem("userId", data.userId);
-      localStorage.setItem("userRole", data.role);
+      localStorage.setItem("userRole", data.role || "customer");
       localStorage.setItem("userName", data.name || "Guest");
 
       // Update auth context
       login({
         id: data.userId,
         name: data.name || "Guest",
-        role: data.role,
+        role: data.role || "customer",
       });
 
       // Instead of redirecting, just refresh the current page

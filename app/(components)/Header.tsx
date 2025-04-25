@@ -4,107 +4,101 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useAuth } from "../context/AuthContext";
 
 const Header = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const { isLoggedIn, user, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [cartItemCount, setCartItemCount] = useState(0);
   const pathname = usePathname();
 
   // Get logo URL and site name from environment variables or use defaults
   const logoUrl = process.env.NEXT_PUBLIC_LOGO_URL;
   const siteName = process.env.NEXT_PUBLIC_SITE_NAME;
 
-  useEffect(() => {
-    // Check if user is logged in from localStorage
-    const loggedIn = localStorage.getItem("isLoggedIn") === "true";
-    const role = localStorage.getItem("userRole");
-
-    setIsLoggedIn(loggedIn);
-    setUserRole(role);
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("userRole");
-    setIsLoggedIn(false);
-    setUserRole(null);
-    // Redirect to home page
-    window.location.href = "/";
+  // Function to load cart count from localStorage
+  const loadCartCount = () => {
+    try {
+      const savedCart = localStorage.getItem("cart");
+      if (savedCart) {
+        const parsedCart = JSON.parse(savedCart);
+        if (Array.isArray(parsedCart)) {
+          const totalItems = parsedCart.reduce(
+            (sum, item) => sum + item.quantity,
+            0
+          );
+          setCartItemCount(totalItems);
+        }
+      }
+    } catch (error) {
+      console.error("Error loading cart count:", error);
+    }
   };
+
+  // Load cart count on mount and set up storage event listener
+  useEffect(() => {
+    loadCartCount();
+
+    // Listen for storage events to update cart count across tabs
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "cart") {
+        loadCartCount();
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+
+    // Set up an interval to check for cart changes
+    const intervalId = setInterval(loadCartCount, 1000);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      clearInterval(intervalId);
+    };
+  }, []);
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
   };
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setIsMenuOpen(false);
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
+
   return (
-    <header className="sticky top-0 w-full bg-gradient-to-r from-blue-900 via-red-600 to-yellow-400 bg-[length:400%_400%] animate-gradient shadow-md z-50">
+    <header className="bg-gradient-to-r from-blue-900 via-red-600 to-yellow-400 text-white shadow-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <div className="flex-shrink-0">
+        <div className="flex justify-between items-center py-4">
+          {/* Logo and Site Name */}
+          <div className="flex items-center">
             <Link href="/" className="flex items-center">
-              <div className="h-10 w-10 rounded-full bg-white flex items-center justify-center shadow-md hover:scale-105 transition-transform duration-300">
+              {logoUrl ? (
                 <Image
-                  src={logoUrl || ""}
-                  alt="DevMTR Logo"
-                  width={30}
-                  height={30}
-                  className="rounded-full"
+                  src={logoUrl}
+                  alt="Logo"
+                  width={40}
+                  height={40}
+                  className="mr-2"
                 />
-              </div>
-              <span className="ml-2 text-white font-bold text-xl">
-                {siteName}
+              ) : (
+                <div className="w-10 h-10 bg-white rounded-full mr-2 flex items-center justify-center">
+                  <span className="text-blue-900 font-bold text-xl">D</span>
+                </div>
+              )}
+              <span className="text-xl font-bold">
+                {siteName || "DevMTR E-Commerce"}
               </span>
             </Link>
           </div>
 
-          {/* Mobile menu button */}
-          <div className="md:hidden">
-            <button
-              onClick={toggleMenu}
-              className="inline-flex items-center justify-center p-2 rounded-md text-white hover:bg-white/10 focus:outline-none"
-              aria-expanded="false"
-            >
-              <span className="sr-only">Open main menu</span>
-              {/* Icon when menu is closed */}
-              <svg
-                className={`${isMenuOpen ? "hidden" : "block"} h-6 w-6`}
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              </svg>
-              {/* Icon when menu is open */}
-              <svg
-                className={`${isMenuOpen ? "block" : "hidden"} h-6 w-6`}
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
-
-          {/* Desktop menu */}
+          {/* Desktop Navigation */}
           <nav className="hidden md:flex md:items-center md:space-x-4">
-            {isLoggedIn && userRole === "admin" && (
+            {isLoggedIn && user?.role === "admin" && (
               <Link
                 href="/admin/products"
                 className={`text-white hover:text-white/80 px-3 py-2 rounded-md text-sm font-medium relative group ${
@@ -119,11 +113,11 @@ const Header = () => {
 
             {isLoggedIn ? (
               <>
-                {userRole === "admin" ? (
+                {user?.role === "admin" ? (
                   <Link
-                    href="/admin/all-orders"
+                    href="/admin/orders"
                     className={`text-white hover:text-white/80 px-3 py-2 rounded-md text-sm font-medium relative group ${
-                      pathname === "/admin/all-orders"
+                      pathname === "/admin/orders"
                         ? "after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-white"
                         : ""
                     }`}
@@ -142,9 +136,39 @@ const Header = () => {
                     My Orders
                   </Link>
                 )}
+
+                {/* Cart Icon for Customers */}
+                {user?.role === "customer" && (
+                  <Link
+                    href="/cart"
+                    className="text-white hover:text-white/80 px-3 py-2 rounded-md text-sm font-medium relative group flex items-center"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-6 w-6 mr-1"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+                      />
+                    </svg>
+                    Cart
+                    {cartItemCount > 0 && (
+                      <span className="ml-1 bg-white text-blue-900 text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                        {cartItemCount}
+                      </span>
+                    )}
+                  </Link>
+                )}
+
                 <button
                   onClick={handleLogout}
-                  className="text-white border border-white hover:bg-white hover:text-blue-900 px-4 py-2 rounded-md text-sm font-medium transition-colors duration-300"
+                  className="text-white border border-white hover:bg-white hover:text-blue-900 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-300"
                 >
                   Logout
                 </button>
@@ -163,17 +187,46 @@ const Header = () => {
                 </Link>
                 <Link
                   href="/register"
-                  className={`text-white hover:text-white/80 px-3 py-2 rounded-md text-sm font-medium relative group ${
-                    pathname === "/register"
-                      ? "after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-white"
-                      : ""
-                  }`}
+                  className="text-white border border-white hover:bg-white hover:text-blue-900 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-300"
                 >
                   Register
                 </Link>
               </>
             )}
           </nav>
+
+          {/* Mobile menu button */}
+          <div className="md:hidden">
+            <button
+              onClick={toggleMenu}
+              className="text-white focus:outline-none"
+              aria-label="Toggle menu"
+            >
+              <svg
+                className="h-6 w-6"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                {isMenuOpen ? (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                ) : (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 12h16M4 18h16"
+                  />
+                )}
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -184,7 +237,7 @@ const Header = () => {
         } md:hidden bg-gradient-to-r from-blue-900 via-red-600 to-yellow-400`}
       >
         <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-          {isLoggedIn && userRole === "admin" && (
+          {isLoggedIn && user?.role === "admin" && (
             <Link
               href="/admin/products"
               className={`text-white block px-3 py-2 rounded-md text-base font-medium ${
@@ -197,11 +250,11 @@ const Header = () => {
 
           {isLoggedIn ? (
             <>
-              {userRole === "admin" ? (
+              {user?.role === "admin" ? (
                 <Link
-                  href="/admin/all-orders"
+                  href="/admin/orders"
                   className={`text-white block px-3 py-2 rounded-md text-base font-medium ${
-                    pathname === "/admin/all-orders" ? "bg-white/10" : ""
+                    pathname === "/admin/orders" ? "bg-white/10" : ""
                   }`}
                 >
                   All Orders
@@ -216,6 +269,38 @@ const Header = () => {
                   My Orders
                 </Link>
               )}
+
+              {/* Cart Icon for Customers in Mobile Menu */}
+              {user?.role === "customer" && (
+                <Link
+                  href="/cart"
+                  className={`text-white block px-3 py-2 rounded-md text-base font-medium flex items-center ${
+                    pathname === "/cart" ? "bg-white/10" : ""
+                  }`}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 mr-2"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+                    />
+                  </svg>
+                  Cart
+                  {cartItemCount > 0 && (
+                    <span className="ml-2 bg-white text-blue-900 text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                      {cartItemCount}
+                    </span>
+                  )}
+                </Link>
+              )}
+
               <button
                 onClick={handleLogout}
                 className="text-white border border-white hover:bg-white hover:text-blue-900 w-full text-left px-3 py-2 rounded-md text-base font-medium transition-colors duration-300"
@@ -235,9 +320,7 @@ const Header = () => {
               </Link>
               <Link
                 href="/register"
-                className={`text-white block px-3 py-2 rounded-md text-base font-medium ${
-                  pathname === "/register" ? "bg-white/10" : ""
-                }`}
+                className="text-white border border-white hover:bg-white hover:text-blue-900 block px-3 py-2 rounded-md text-base font-medium transition-colors duration-300"
               >
                 Register
               </Link>

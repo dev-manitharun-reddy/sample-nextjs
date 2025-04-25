@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       name: user.name,
       email: user.email,
       phone: user.phone,
-      role: user.role,
+      role: user.role || "customer",
       message: "Login successful",
     });
   } catch (error) {

@@ -54,6 +54,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = (userData: User) => {
+    // Store user data in localStorage
+    localStorage.setItem("isLoggedIn", "true");
+    localStorage.setItem("userId", userData.id);
+    localStorage.setItem("userName", userData.name);
+    localStorage.setItem("userRole", userData.role);
+
     setUser(userData);
     setIsLoggedIn(true);
   };

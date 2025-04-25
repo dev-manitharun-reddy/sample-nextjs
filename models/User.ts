@@ -2,11 +2,12 @@ import mongoose from "mongoose";
 
 // Define the User interface
 export interface User {
-  name?: string;
-  email?: string;
-  password?: string;
+  _id: string;
+  name: string;
+  email: string;
+  password: string;
   phone: string;
-  role: string;
+  role: "admin" | "customer";
   created_on: Date;
   update_on: Date;
   status: number;
