@@ -5,11 +5,12 @@ import { Product } from "@/models/Product";
 // GET /api/products/[id] - Get a single product
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectDB();
-    const product = await Product.findById(params.id);
+    const resolvedParams = await params;
+    const product = await Product.findById(resolvedParams.id);
 
     if (!product) {
       return NextResponse.json(
@@ -31,11 +32,12 @@ export async function GET(
 // PUT /api/products/[id] - Update a product
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectDB();
     const body = await request.json();
+    const resolvedParams = await params;
 
     // Validate required fields
     if (!body.name || !body.actualPrice || !body.finalPrice || !body.imageUrl) {
@@ -53,7 +55,7 @@ export async function PUT(
       );
     }
 
-    const product = await Product.findById(params.id);
+    const product = await Product.findById(resolvedParams.id);
 
     if (!product) {
       return NextResponse.json(
@@ -86,11 +88,12 @@ export async function PUT(
 // DELETE /api/products/[id] - Delete a product
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectDB();
-    const product = await Product.findById(params.id);
+    const resolvedParams = await params;
+    const product = await Product.findById(resolvedParams.id);
 
     if (!product) {
       return NextResponse.json(
@@ -99,7 +102,7 @@ export async function DELETE(
       );
     }
 
-    await Product.deleteOne({ _id: params.id });
+    await Product.deleteOne({ _id: resolvedParams.id });
 
     return NextResponse.json(
       { message: "Product deleted successfully" },

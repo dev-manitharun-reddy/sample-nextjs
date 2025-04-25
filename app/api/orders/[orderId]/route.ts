@@ -1,27 +1,30 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
-import { ObjectId } from "mongodb";
+import { Order } from "@/models/Order";
 
-export async function GET(
-  request: Request,
-  { params }: { params: { orderId: string } }
-) {
+// Define the type for the params object
+type Params = {
+  orderId: string;
+};
+
+// Use type assertion to bypass the type checking
+export async function GET(request: NextRequest, context: any) {
   try {
-    const mongoose = await connectDB();
-    const orderId = params.orderId;
+    const { orderId } = context.params;
 
-    // Validate orderId format
-    if (!ObjectId.isValid(orderId)) {
+    if (!orderId) {
       return NextResponse.json(
-        { error: "Invalid order ID format" },
+        { error: "Order ID is required" },
         { status: 400 }
       );
     }
 
-    // Find the order by ID
-    const order = await mongoose.connection.collection("orders").findOne({
-      _id: new ObjectId(orderId),
-    });
+    await connectDB();
+
+    const order = await Order.findById(orderId).populate(
+      "userId",
+      "name email"
+    );
 
     if (!order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
